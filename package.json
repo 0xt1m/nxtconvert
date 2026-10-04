@@ -1,0 +1,106 @@
+{
+  "name": "nxtconvert",
+  "productName": "nxtconvert",
+  "version": "0.1.0",
+  "description": "Convert any common file into any other common file, entirely on this computer.",
+  "main": "out/main/index.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "electron-vite build && node scripts/smoke.mjs",
+    "dist": "electron-vite build && electron-builder"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "ffmpeg-static": "^5.3.0",
+    "heic-convert": "^2.1.0",
+    "mammoth": "^1.13.0",
+    "marked": "^18.0.14",
+    "pdf-lib": "^1.17.1",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "5.9",
+    "vite": "^7.3.6"
+  },
+  "build": {
+    "appId": "app.nxtconvert",
+    "productName": "nxtconvert",
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**",
+      "package.json",
+      "!src/**",
+      "!scripts/**"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**",
+      "node_modules/sharp/**",
+      "node_modules/@img/**"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "resources/icon-mac.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "maintainer": "0xt1m",
+      "icon": "resources/icon.png"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "0xt1m",
+        "repo": "nxtconvert-releases",
+        "releaseType": "draft"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+  },
+  "author": {
+    "name": "0xt1m"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xt1m/nxtconvert.git"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

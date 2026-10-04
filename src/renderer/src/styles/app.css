@@ -1,0 +1,77 @@
+/* What a real desktop window needs on top of the design system's component styles. */
+
+html, body, #root { height: 100%; }
+body { overflow: hidden; user-select: none; }
+button, select, input { font-family: inherit; }
+
+/* The window is the OS window: no rounded corners or drop shadow of its own. */
+.nc-window.nc-window-native { width: 100vw; height: 100vh; border-radius: 0; box-shadow: none; }
+
+/* The title bar drags the window; anything clickable opts out. */
+.nc-titlebar { -webkit-app-region: drag; }
+.nc-titlebar button, .nc-titlebar .nc-titlebar-actions { -webkit-app-region: no-drag; }
+/* macOS draws its own traffic lights at (16, 16); this keeps their space clear. */
+.nc-lights-space { width: 52px; height: 12px; flex: none; }
+.nc-titlebar-linux .nc-winctl button { width: 24px; height: 24px; }
+.nc-titlebar-linux .nc-winctl button.close:hover { background: #c42b1c; color: #fff; }
+
+/* Rows can be selected as text (file names are often copied). */
+.nc-row-name b, .nc-row-name small, .nc-savepath b { user-select: text; }
+.nc-row[data-status="converting"] .nc-row-status { min-width: 0; }
+.nc-row > :nth-child(4) { justify-self: stretch; min-width: 0; }
+.nc-row .nc-row-status { justify-content: flex-start; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.nc-select select:disabled { color: var(--ink-muted); cursor: default; background: var(--bg-200); }
+.nc-select select option:disabled { color: var(--ink-faint); }
+
+/* Plain (non-extension) select labels, used in Settings. */
+.nc-select-plain select { font: 400 13px/18px var(--font-sans); letter-spacing: 0; min-width: 140px; }
+
+/* Empty state: the drop zone fills the body. */
+.nc-drop { flex: 1; margin-top: var(--space-4); cursor: default; }
+.nc-drop:focus-visible { outline-offset: -2px; }
+
+/* While files hover over the queue window, the list frames itself in the accent. */
+.nc-window-body { position: relative; }
+.app-dragging .nc-window-body { outline: 2px solid var(--accent-ink); outline-offset: -6px; border-radius: var(--radius-lg); }
+.app-list-empty { flex: 1; display: grid; place-items: center; color: var(--ink-muted); }
+
+/* Footer batch status: "2 of 6" instead of a second progress bar. */
+.app-batch { font: 500 12px/16px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); white-space: nowrap; }
+
+/* Popovers: Settings and "Set all to". */
+.app-scrim { position: fixed; inset: 0; z-index: 10; }
+.app-pop {
+  position: fixed; z-index: 11; background: var(--bg-100); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop);
+  -webkit-app-region: no-drag;
+}
+.app-settings { top: calc(var(--titlebar-h) + 6px); right: var(--space-3); width: 340px; max-height: calc(100vh - var(--titlebar-h) - 24px); overflow: auto; }
+.app-settings header { display: flex; align-items: center; padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); }
+.app-settings h2 { margin: 0; font: 600 15px/20px var(--font-sans); letter-spacing: -.01em; flex: 1; }
+.app-settings section { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: var(--space-3); }
+.app-settings section:last-child { border-bottom: 0; }
+.app-settings h3 { margin: 0; font: 500 12px/16px var(--font-sans); color: var(--ink-muted); }
+.app-field { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.app-tools { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.app-tools li { display: flex; align-items: center; gap: var(--space-2); }
+.app-tools .ok { color: var(--success); }
+.app-tools small { color: var(--ink-muted); font-size: 11px; line-height: 14px; margin-left: auto; text-align: right; }
+.app-setall { width: 360px; padding: var(--space-3); }
+.app-setall h2 { margin: 0 0 var(--space-3); font: 500 12px/16px var(--font-sans); color: var(--ink-muted); }
+
+/* Native selects size to their longest option ("DOCX · Needs LibreOffice"); keep the column aligned. */
+.nc-row .nc-select select { width: 92px; text-overflow: ellipsis; }
+
+/* Update offer, under the title bar like Settings. */
+.app-update { top: calc(var(--titlebar-h) + 6px); right: var(--space-3); width: 340px; }
+.app-update header { display: flex; align-items: center; padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); }
+.app-update h2 { margin: 0; flex: 1; font: 600 15px/20px var(--font-sans); letter-spacing: -.01em; }
+.app-update-body { padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.app-update-body p { margin: 0; }
+.app-update-notes { margin: 0; max-height: 160px; overflow: auto; padding: var(--space-2) var(--space-3); background: var(--bg-000); border: 1px solid var(--line); border-radius: var(--radius-md); font: 400 12px/16px var(--font-sans); color: var(--ink-muted); white-space: pre-wrap; user-select: text; }
+.app-update footer { display: flex; justify-content: flex-end; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); }
+.nc-titlebar-actions { align-items: center; }
+
+/* Logo mark beside the wordmark in the title bar. */
+.nc-wordmark { display: flex; align-items: center; gap: 7px; }
+.nc-logo { flex: none; color: var(--ink); }

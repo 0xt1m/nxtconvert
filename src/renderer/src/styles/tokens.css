@@ -1,0 +1,81 @@
+/* Generated from the nxtconvert design system tokens.json. Graphite (dark) is the primary theme; Paper follows the OS. */
+:root {
+  color-scheme: dark light;
+  --font-sans: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", Ubuntu, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --focus: var(--accent-ink);
+  --mac-close: #ff5f57;
+  --mac-min: #febc2e;
+  --mac-max: #28c840;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+  --titlebar-h: 44px;
+  --row-h: 60px;
+  --control-h: 32px;
+  --footer-h: 60px;
+  --bg-000: #0f1012;
+  --bg-100: #17181b;
+  --bg-200: #1f2024;
+  --bg-300: #2a2c31;
+  --line: #2a2c31;
+  --line-strong: #6a6e77;
+  --ink: #f2f2ef;
+  --ink-muted: #a3a5ab;
+  --ink-faint: #6e7179;
+  --accent: #d4ff3a;
+  --accent-hover: #e2ff73;
+  --on-accent: #141518;
+  --accent-ink: #d4ff3a;
+  --kind-image: #7cc4ff;
+  --kind-image-bg: rgba(124,196,255,0.14);
+  --kind-video: #ff8a6b;
+  --kind-video-bg: rgba(255,138,107,0.14);
+  --kind-audio: #c4a8ff;
+  --kind-audio-bg: rgba(196,168,255,0.14);
+  --kind-doc: #ffc95c;
+  --kind-doc-bg: rgba(255,201,92,0.14);
+  --success: #6ee69a;
+  --danger: #ff7b7b;
+  --shadow-window: 0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-pop: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-000: #f4f4f1;
+    --bg-100: #ffffff;
+    --bg-200: #ecece8;
+    --bg-300: #e2e2dd;
+    --line: #e2e2dd;
+    --line-strong: #7f8288;
+    --ink: #141518;
+    --ink-muted: #5d6066;
+    --ink-faint: #8f9298;
+    --accent: #d4ff3a;
+    --accent-hover: #c4f01f;
+    --on-accent: #141518;
+    --accent-ink: #4a6800;
+    --kind-image: #0b5fa3;
+    --kind-image-bg: #e4f0fa;
+    --kind-video: #a8380f;
+    --kind-video-bg: #fbe9e2;
+    --kind-audio: #6a3fc4;
+    --kind-audio-bg: #efe8fb;
+    --kind-doc: #865600;
+    --kind-doc-bg: #f8eedb;
+    --success: #1c7a3c;
+    --danger: #c02a2a;
+    --shadow-window: 0 24px 64px rgba(20,21,24,0.16), 0 0 0 1px rgba(20,21,24,0.08);
+    --shadow-pop: 0 8px 24px rgba(20,21,24,0.12);
+  }
+}
