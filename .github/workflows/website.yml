@@ -1,0 +1,44 @@
+# Builds the website and publishes it to GitHub Pages on the public releases repo
+# (branch gh-pages of 0xt1m/nxtconvert-releases). Runs when the site changes, after each
+# release, and every 6 hours so the download count baked into the pages stays fresh.
+name: website
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/**', 'src/shared/formats.ts', '.github/workflows/website.yml']
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: website
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # Only the fonts are needed; skip Electron, ffmpeg and sharp downloads.
+      - run: npm ci --ignore-scripts
+      - run: npm run site:build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.RELEASES_TOKEN }}
+          external_repository: 0xt1m/nxtconvert-releases
+          publish_branch: gh-pages
+          publish_dir: ./website/dist
+          force_orphan: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: Publish website

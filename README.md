@@ -91,3 +91,41 @@ The source repo stays private; only installers and `latest*.yml` update files go
 To try the update panel locally, serve a folder containing a `latest-mac.yml` (or `latest.yml` /
 `latest-linux.yml`) and the file it names, then run `NXT_UPDATE_FEED=http://127.0.0.1:8765/ npm run dev`. The
 override only works in dev builds.
+
+## Website
+
+`website/` is the product site: a homepage with downloads, FAQ and a developer section, plus a landing page
+per popular conversion ("HEIC to JPG", "MOV to MP4" and so on, listed in `website/content.mjs`). Every
+landing page is checked at build time against the app's own format table, so the site never promises a
+conversion the app can't do out of the box.
+
+```sh
+npm run site:dev     # build and serve on http://localhost:4173
+npm run site:build   # build into website/dist
+```
+
+- **Settings:** `website/site.config.mjs` holds the site URL, an optional custom domain, and your developer
+  name, bio and links.
+- **Download buttons:** they link straight to the latest release's installers. The visitor's OS is
+  highlighted first.
+- **Download count:** the total of installer downloads (.dmg, .exe, .AppImage, .deb) across all releases,
+  from GitHub's own counters. Update files aren't counted, but Windows auto-updates download the .exe, so
+  they are. The count is baked into the pages at build time and refreshed in the browser.
+- **SEO:** each page gets a unique title and description, a canonical URL, Open Graph and Twitter cards,
+  and structured data (SoftwareApplication, FAQPage, HowTo, BreadcrumbList). The build also writes
+  `sitemap.xml` and `robots.txt`. Pages are static and light: no tracking, no cookies, about 9 KB of HTML each.
+
+### Publishing
+
+`.github/workflows/website.yml` builds the site and pushes it to the `gh-pages` branch of the public
+releases repo. It runs on changes, after each release, and every 6 hours to refresh the count. Then:
+
+1. In `0xt1m/nxtconvert-releases` → Settings → Pages, set the source to the `gh-pages` branch.
+   The site is then at https://0xt1m.github.io/nxtconvert-releases/.
+2. Add the site to [Google Search Console](https://search.google.com/search-console) and
+   [Bing Webmaster Tools](https://www.bing.com/webmasters) and submit `sitemap.xml`. This is the step that
+   gets the pages indexed quickly.
+3. Optional: a custom domain ranks and reads better. Set `customDomain` and `siteUrl` in
+   `site.config.mjs`, then point the domain's DNS at GitHub Pages.
+
+Screenshots in `website/assets` are real renders of the app. Retake them when the interface changes.
