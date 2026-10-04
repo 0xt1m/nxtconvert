@@ -1,9 +1,9 @@
 // Everything about the website you're likely to change. Rebuild with `npm run site:build`.
 export default {
   /** Where the site lives, no trailing slash. Used for canonical URLs, the sitemap and social previews. */
-  siteUrl: 'https://0xt1m.github.io/nxtconvert-releases',
+  siteUrl: 'https://nxtconvert.com',
   /** Set to a domain you own (for example 'nxtconvert.app') to serve the site there; also update siteUrl. */
-  customDomain: null,
+  customDomain: 'nxtconvert.com',
   /** Public repo with the installers. The download buttons and the download count come from its releases. */
   releasesRepo: '0xt1m/nxtconvert-releases',
 

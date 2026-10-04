@@ -120,12 +120,13 @@ npm run site:build   # build into website/dist
 `.github/workflows/website.yml` builds the site and pushes it to the `gh-pages` branch of the public
 releases repo. It runs on changes, after each release, and every 6 hours to refresh the count. Then:
 
-1. In `0xt1m/nxtconvert-releases` → Settings → Pages, set the source to the `gh-pages` branch.
-   The site is then at https://0xt1m.github.io/nxtconvert-releases/.
+1. In `0xt1m/nxtconvert-releases` → Settings → Pages, set the source to the `gh-pages` branch. The build
+   writes a `CNAME` file, so Pages serves the site at https://nxtconvert.com.
+   DNS for `nxtconvert.com`: four `A` records on `@` (185.199.108.153, .109.153, .110.153, .111.153) and a
+   `CNAME` record `www` → `0xt1m.github.io`. Once the certificate is issued, tick **Enforce HTTPS**.
 2. Add the site to [Google Search Console](https://search.google.com/search-console) and
    [Bing Webmaster Tools](https://www.bing.com/webmasters) and submit `sitemap.xml`. This is the step that
    gets the pages indexed quickly.
-3. Optional: a custom domain ranks and reads better. Set `customDomain` and `siteUrl` in
-   `site.config.mjs`, then point the domain's DNS at GitHub Pages.
+3. To move to another domain, change `customDomain` and `siteUrl` in `site.config.mjs` and update DNS.
 
 Screenshots in `website/assets` are real renders of the app. Retake them when the interface changes.

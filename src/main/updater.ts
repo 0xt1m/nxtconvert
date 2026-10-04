@@ -8,8 +8,8 @@ import type { UpdateState } from '@shared/types'
 // electron-updater is CommonJS; its named exports don't survive ESM interop.
 const { autoUpdater } = electronUpdater
 
-/** Public repo that holds the installers and latest*.yml files (see package.json build.publish). */
-export const RELEASES_URL = 'https://github.com/0xt1m/nxtconvert-releases/releases/latest'
+/** Where people download by hand when the app can't install an update itself. */
+export const RELEASES_URL = 'https://nxtconvert.com/#download'
 
 let win: BrowserWindow | null = null
 let state: UpdateState = { state: 'idle' }
