@@ -19,7 +19,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: v
         name: Tag matches package.json
         run: |
@@ -47,8 +47,8 @@ jobs:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -60,17 +60,26 @@ jobs:
       - name: End-to-end conversions
         run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}npm test
       - name: Build and upload
-        run: npx electron-builder --publish always
+        shell: bash
+        run: |
+          # Secrets that aren't set arrive as empty strings, which electron-builder would treat as
+          # "certificate at path ''" and fail. Leave them out instead: that build is simply unsigned.
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -n "${!v}" ] || unset "$v"
+          done
+          if [ "$RUNNER_OS" = macOS ] && [ -z "${CSC_LINK:-}" ]; then
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            echo "::warning::No MAC_CERTIFICATE secret: the macOS build is unsigned and can't update itself."
+          fi
+          npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-          # macOS signing and notarization; without these the Mac build is unsigned
-          # and can't update itself (see README, Releasing).
+          # macOS signing (Developer ID certificate) and notarization; see README, Releasing.
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTIFICATE != '' }}
 
   publish:
     needs: [draft, build]
