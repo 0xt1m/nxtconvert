@@ -11,6 +11,9 @@ import { capabilities, FFMPEG } from './tools'
 import { saveSettings } from './settings'
 import { probe } from './probe'
 import { convert } from './convert'
+import { convertImage } from './convert/image'
+import { getSettings } from './settings'
+import { mkdtemp } from 'node:fs/promises'
 
 const root = mkdtempSync(join(tmpdir(), 'nxtconvert-smoke-'))
 app.setPath('userData', join(root, 'user'))
@@ -101,6 +104,37 @@ async function main(): Promise<void> {
     for (const f of list) {
       const reachable = sources.some((s) => kindOf(s.split('.').pop()!) === kind && typeof planFor(s.split('.').pop()!, f.ext, caps) !== 'string')
       if (!reachable) console.log(`note: no sample reaches ${kind} → ${f.ext}`)
+    }
+  }
+
+  // The WebAssembly HEIC decoder (Windows and Linux) runs here too, even on a Mac that has sips.
+  // NXT_HEIC_SAMPLE=<photo.heic> times it on a real-size photo.
+  const heic = process.env.NXT_HEIC_SAMPLE || join(root, 'in', 'sample.heic')
+  if (statSync(heic, { throwIfNoEntry: false })) {
+    const run = async (id: string, signal = new AbortController().signal): Promise<{ ms: number; out: string }> => {
+      const tmp = await mkdtemp(join(root, `heic-${id}-`))
+      const started = Date.now()
+      const out = await convertImage({ src: heic, from: 'heic', to: 'jpg', base: 'heic', tmp, settings: getSettings(), signal, progress: () => {} },
+        { engine: 'image', decode: 'heic-wasm', encode: 'sharp' }) as string
+      return { ms: Date.now() - started, out }
+    }
+    try {
+      const one = await run('one')
+      const [src, out] = await Promise.all([sharp(heic).metadata().catch(() => null), sharp(one.out).metadata()])
+      const sizeOk = !src?.width || (src.width === out.width && src.height === out.height)
+      const t0 = Date.now()
+      await Promise.all([run('a'), run('b')])
+      const pair = Date.now() - t0
+      if (sizeOk) { passed++; console.log(`\nok heic (wasm worker) → jpg  ${out.width}×${out.height}  one ${one.ms}ms, two at once ${pair}ms`) }
+      else { failed++; console.log(`\nXX heic (wasm worker) size ${out.width}×${out.height} vs ${src?.width}×${src?.height}`) }
+      const controller = new AbortController()
+      const pending = run('cancel', controller.signal).then(() => 'finished', (e) => (e.cancelled ? 'cancelled' : e.message))
+      setTimeout(() => controller.abort(), 5)
+      const outcome = await pending
+      if (outcome === 'cancelled') { passed++; console.log('ok heic cancel') } else { failed++; console.log('XX heic cancel:', outcome) }
+    } catch (err) {
+      failed++
+      console.log('XX heic (wasm worker)', err)
     }
   }
 

@@ -1,13 +1,52 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import sharp, { type Sharp } from 'sharp'
-import heicConvert from 'heic-convert'
+import { Worker } from 'node:worker_threads'
+import sharp, { type Sharp, type SharpOptions } from 'sharp'
 import { PDFDocument } from 'pdf-lib'
 import type { ImagePlan } from '@shared/formats'
-import { FFMPEG, run, tools } from '../tools'
+import { FFMPEG, run, tools, ToolError } from '../tools'
 import { throwIfAborted, type Job, type Output } from './util'
+import heicWorkerPath from './heic.worker?modulePath'
 
-type Input = string | Buffer
+/** Decoded pixels handed straight to sharp, with no intermediate file. */
+interface RawPixels {
+  pixels: Buffer
+  width: number
+  height: number
+  channels: 3 | 4
+}
+
+type Input = string | RawPixels
+
+/** A sharp pipeline for any input. */
+function open(input: Input, options: SharpOptions = {}): Sharp {
+  if (typeof input === 'string') return sharp(input, options)
+  const { pixels, width, height, channels } = input
+  return sharp(pixels, { ...options, raw: { width, height, channels } })
+}
+
+/** Decodes HEIC in a worker thread (see heic.worker.ts); cancelling stops the worker. */
+async function decodeHeic(file: string, signal: AbortSignal): Promise<RawPixels> {
+  const buffer = await readFile(file)
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(heicWorkerPath, { workerData: buffer })
+    const abort = (): void => {
+      void worker.terminate()
+      reject(new ToolError('Cancelled', '', true))
+    }
+    signal.addEventListener('abort', abort, { once: true })
+    const done = (): void => {
+      signal.removeEventListener('abort', abort)
+      void worker.terminate()
+    }
+    worker.once('message', (m: { width: number; height: number; channels: 3 | 4; pixels: Uint8Array } | { error: string }) => {
+      done()
+      if ('error' in m) return reject(new Error(m.error))
+      resolve({ pixels: Buffer.from(m.pixels.buffer, m.pixels.byteOffset, m.pixels.byteLength), width: m.width, height: m.height, channels: m.channels })
+    })
+    worker.once('error', (err) => { done(); reject(err) })
+  })
+}
 
 /** Bring any source into something sharp can read. */
 async function decode(job: Job, plan: ImagePlan): Promise<Input> {
@@ -19,10 +58,8 @@ async function decode(job: Job, plan: ImagePlan): Promise<Input> {
       await run(tools().sips!, ['-s', 'format', 'png', job.src, '--out', out], { signal: job.signal })
       return out
     }
-    case 'heic-wasm': {
-      const png = await heicConvert({ buffer: await readFile(job.src), format: 'PNG' })
-      return Buffer.from(png)
-    }
+    case 'heic-wasm':
+      return decodeHeic(job.src, job.signal)
     case 'ffmpeg': {
       const out = join(job.tmp, 'decoded.png')
       await run(FFMPEG, ['-hide_banner', '-nostdin', '-y', '-i', job.src, '-frames:v', '1', out], { signal: job.signal })
@@ -32,7 +69,7 @@ async function decode(job: Job, plan: ImagePlan): Promise<Input> {
 }
 
 function pipeline(input: Input, job: Job, animated = false): Sharp {
-  let img = sharp(input, { animated }).rotate()
+  let img = open(input, { animated }).rotate()
   if (!job.settings.stripMetadata) img = img.keepMetadata()
   return img
 }
@@ -49,7 +86,8 @@ export async function convertImage(job: Job, plan: ImagePlan): Promise<Output> {
     case 'sharp': {
       const animated = (job.from === 'gif' || job.from === 'webp') && (job.to === 'gif' || job.to === 'webp')
       const img = pipeline(input, job, animated)
-      if (job.to === 'jpg') await img.flatten({ background: '#ffffff' }).jpeg({ quality: q, mozjpeg: true }).toFile(out)
+      // mozjpeg makes files ~13% smaller but encodes ~12× slower; spend that only when asked for small files.
+      if (job.to === 'jpg') await img.flatten({ background: '#ffffff' }).jpeg({ quality: q, mozjpeg: q <= 75 }).toFile(out)
       else if (job.to === 'png') await img.png({ compressionLevel: 8 }).toFile(out)
       else if (job.to === 'webp') await img.webp({ quality: q }).toFile(out)
       // AVIF looks as good as JPEG at a much lower quality number.
@@ -74,7 +112,7 @@ export async function convertImage(job: Job, plan: ImagePlan): Promise<Output> {
       let file = input
       if (typeof file !== 'string' || plan.decode !== 'sharp') {
         file = join(job.tmp, 'oriented.png')
-        await sharp(input).rotate().png().toFile(file)
+        await open(input).rotate().png().toFile(file)
       }
       await run(tools().sips!, ['-s', 'format', 'heic', '-s', 'formatOptions', String(q), file, '--out', out], { signal: job.signal })
       break
@@ -114,11 +152,11 @@ export function encodeBmp(rgb: Buffer, width: number, height: number): Buffer {
 
 /** Multi-size ICO with PNG-compressed entries, square and padded with transparency. */
 async function encodeIco(input: Input): Promise<Buffer> {
-  const meta = await sharp(input).metadata()
+  const meta = await open(input).metadata()
   const longest = Math.max(meta.width ?? 256, meta.height ?? 256)
   const sizes = [16, 24, 32, 48, 64, 128, 256].filter((s) => s <= Math.max(16, longest))
   const pngs = await Promise.all(sizes.map((s) =>
-    sharp(input).rotate().resize(s, s, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer()))
+    open(input).rotate().resize(s, s, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer()))
 
   const header = Buffer.alloc(6 + 16 * sizes.length)
   header.writeUInt16LE(0, 0)
@@ -140,7 +178,7 @@ async function encodeIco(input: Input): Promise<Buffer> {
 
 /** One page sized to the image at 96 dpi. */
 async function encodePdf(input: Input): Promise<Buffer> {
-  const img = sharp(input).rotate()
+  const img = open(input).rotate()
   const meta = await img.metadata()
   const doc = await PDFDocument.create()
   const embedded = meta.hasAlpha

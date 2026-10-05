@@ -1,4 +1,7 @@
-declare module 'heic-convert' {
-  function convert(opts: { buffer: Buffer | Uint8Array; format: 'PNG' | 'JPEG'; quality?: number }): Promise<ArrayBuffer>
-  export default convert
+/// <reference types="electron-vite/node" />
+
+declare module 'heic-decode' {
+  /** Decodes the primary image, with rotation and mirroring applied, as RGBA pixels. */
+  function decode(opts: { buffer: Uint8Array }): Promise<{ width: number; height: number; data: Uint8ClampedArray }>
+  export default decode
 }
