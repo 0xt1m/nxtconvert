@@ -1,6 +1,6 @@
 # Changelog
 
-Each version's notes appear in the app's update panel. Add a `## <version>` section before tagging a release.
+All notable changes to nxtconvert. Each version's notes are also shown in the app's update panel.
 
 ## 0.1.1
 

@@ -74,7 +74,7 @@ jobs:
           npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-          # macOS signing (Developer ID certificate) and notarization; see README, Releasing.
+          # macOS signing (Developer ID certificate) and notarization; see docs/RELEASING.md.
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}

@@ -85,7 +85,7 @@ export function setupUpdater(): void {
   })
   ipcMain.handle('update:open-page', () => shell.openExternal(RELEASES_URL))
 
-  // A dev build can be pointed at a local feed to try the whole flow (see README, Releasing).
+  // A dev build can be pointed at a local feed to try the whole flow (see docs/RELEASING.md).
   // Never in a packaged app: an environment variable mustn't be able to redirect real updates.
   const testFeed = app.isPackaged ? undefined : process.env.NXT_UPDATE_FEED
   if (!app.isPackaged && !testFeed) return
