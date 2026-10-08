@@ -53,11 +53,13 @@ export async function probe(path: string): Promise<FileInfo> {
   const ext = extOf(path)
   const { size } = await stat(path)
   const parts = [formatSize(size)]
+  let vector: FileInfo['vector']
   try {
     const kind = kindOf(ext)
     if (kind === 'image') {
       const dims = await imageSize(path, ext)
       if (dims) parts.push(`${dims[0]} × ${dims[1]}`)
+      if (dims && ext === 'svg') vector = { width: dims[0], height: dims[1] }
     } else if (kind === 'video' || kind === 'audio') {
       const { duration, height } = await probeMedia(path)
       if (kind === 'video' && height) parts.push(`${height}p`)
@@ -70,5 +72,5 @@ export async function probe(path: string): Promise<FileInfo> {
   } catch {
     // Metadata is a nicety; the size alone is fine.
   }
-  return { path, name: basename(path), ext, size, meta: parts.join(' · ') }
+  return { path, name: basename(path), ext, size, meta: parts.join(' · '), vector }
 }

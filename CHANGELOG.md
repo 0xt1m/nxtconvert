@@ -2,6 +2,10 @@
 
 All notable changes to nxtconvert. Each version's notes are also shown in the app's update panel.
 
+## 0.1.2
+
+- Choose the output size when converting SVG to PNG, JPG and other image formats: Settings → Images → Vector size (original, 2×, 3×, 4×, or a fixed width up to 4096 px). Drawings are re-rendered at that size, so edges stay sharp.
+
 ## 0.1.1
 
 - HEIC photos convert to JPG about three times faster on Windows and Linux, and batches of photos now convert two at a time.

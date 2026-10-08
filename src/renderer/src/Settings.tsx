@@ -1,5 +1,6 @@
 import type { Caps } from '@shared/formats'
 import type { Settings } from '@shared/types'
+import { VECTOR_SIZES } from '@shared/vector'
 import { Button, Icon, Select, Switch } from './components/ui'
 
 const QUALITY = [
@@ -41,6 +42,12 @@ export function SettingsPanel({ settings: s, caps, onChange, onClose }: {
           <span>Quality</span>
           <Select plain label="Image quality" value={s.imageQuality} options={withValue(QUALITY, s.imageQuality)}
             onChange={(e) => onChange({ imageQuality: Number(e.target.value) })} />
+        </div>
+        <div className="app-field">
+          <span title="Pixel size when converting SVG to PNG, JPG and other image formats">Vector size</span>
+          <Select plain label="Vector image size" value={s.vectorSize}
+            options={withValue(VECTOR_SIZES.map((o) => ({ value: o.value as string, label: o.label })), s.vectorSize)}
+            onChange={(e) => onChange({ vectorSize: e.target.value })} />
         </div>
       </section>
 

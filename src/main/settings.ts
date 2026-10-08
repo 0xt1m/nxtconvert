@@ -11,6 +11,7 @@ function defaults(): Settings {
     outputDir: join(app.getPath('downloads'), 'nxtconvert'),
     keepOriginals: true,
     imageQuality: 85,
+    vectorSize: '1x',
     stripMetadata: false,
     videoMaxHeight: 0,
     videoQuality: 'balanced',

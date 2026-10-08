@@ -7,6 +7,8 @@ export interface Settings {
   keepOriginals: boolean
   /** 1–100, used by JPG, WEBP, AVIF and HEIC. */
   imageQuality: number
+  /** Pixel size for SVG and other vector images: "2x" scales the drawing, "1024" is a width in px. */
+  vectorSize: string
   stripMetadata: boolean
   /** Longest video edge in output height, 0 = keep the original. */
   videoMaxHeight: number
@@ -31,6 +33,8 @@ export interface FileInfo {
   size: number
   /** "4.2 MB · 3024 × 4032" */
   meta: string
+  /** A vector image's own size; the output size depends on Settings → Vector size. */
+  vector?: { width: number; height: number }
 }
 
 export interface ConvertRequest {

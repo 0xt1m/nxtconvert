@@ -4,6 +4,7 @@ import type { Environment, Settings as SettingsT, UpdateState } from '@shared/ty
 import { Button, DropZone, FileRow, FormatPicker, Icon, Switch, Tabs, Window, type RowStatus, type TabItem } from './components/ui'
 import { SettingsPanel } from './Settings'
 import { UpdatePanel } from './Update'
+import { vectorOutputSize } from '@shared/vector'
 
 interface Row {
   id: string
@@ -11,6 +12,8 @@ interface Row {
   name: string
   from: string
   meta: string
+  /** An SVG's own size, used to show the size it will be converted at. */
+  vector?: { width: number; height: number }
   to?: string
   targets: Target[]
   status: RowStatus
@@ -67,7 +70,7 @@ export function App({ env }: { env: Environment }) {
       const from = extOf(info.path)
       const supported = kindOf(from) !== 'any'
       return {
-        id: newId(), path: info.path, name: info.name, from: from || '?', meta: info.meta,
+        id: newId(), path: info.path, name: info.name, from: from || '?', meta: info.meta, vector: info.vector,
         targets: targetsFor(from, caps),
         to: defaultTarget(from, caps, settings.preferredTargets),
         status: supported ? 'ready' : 'error', progress: 0,
@@ -229,6 +232,14 @@ export function App({ env }: { env: Environment }) {
 
   // ---------- Render ----------
 
+  /** SVG rows also show the pixel size they'll be converted at (Settings → Vector size). */
+  const metaFor = (r: Row): string => {
+    if (!r.vector || r.status === 'done') return r.meta
+    const out = vectorOutputSize(r.vector.width, r.vector.height, settings.vectorSize)
+    const size = r.to === 'ico' ? 'up to 256 × 256' : `${out.width} × ${out.height}`
+    return `${r.meta} → ${size}`
+  }
+
   const titleActions = (<>
     {appUpdate.state !== 'idle' && popover !== 'update' && (
       <Button variant="ghost" size="sm" icon="download" onClick={() => setPopover('update')}>
@@ -297,7 +308,7 @@ export function App({ env }: { env: Environment }) {
       </>}>
       {shown.length
         ? shown.map((r) => (
-          <FileRow key={r.id} name={r.name} from={r.from} to={r.to} meta={r.meta} targets={r.targets}
+          <FileRow key={r.id} name={r.name} from={r.from} to={r.to} meta={metaFor(r)} targets={r.targets}
             status={r.status} progress={r.progress} error={r.error} retryable={r.retryable}
             onTargetChange={(ext) => setTarget(r, ext)}
             onRemove={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}

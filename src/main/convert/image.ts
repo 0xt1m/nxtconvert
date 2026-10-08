@@ -5,6 +5,7 @@ import sharp, { type Sharp, type SharpOptions } from 'sharp'
 import { PDFDocument } from 'pdf-lib'
 import type { ImagePlan } from '@shared/formats'
 import { FFMPEG, run, tools, ToolError } from '../tools'
+import { vectorOutputSize } from '@shared/vector'
 import { throwIfAborted, type Job, type Output } from './util'
 import heicWorkerPath from './heic.worker?modulePath'
 
@@ -16,11 +17,18 @@ interface RawPixels {
   channels: 3 | 4
 }
 
-type Input = string | RawPixels
+/** A vector file and the density to draw it at (sharp's 72 dpi = the drawing's own size). */
+interface VectorFile {
+  vector: string
+  density: number
+}
+
+type Input = string | RawPixels | VectorFile
 
 /** A sharp pipeline for any input. */
 function open(input: Input, options: SharpOptions = {}): Sharp {
   if (typeof input === 'string') return sharp(input, options)
+  if ('vector' in input) return sharp(input.vector, { ...options, density: input.density })
   const { pixels, width, height, channels } = input
   return sharp(pixels, { ...options, raw: { width, height, channels } })
 }
@@ -52,7 +60,7 @@ async function decodeHeic(file: string, signal: AbortSignal): Promise<RawPixels>
 async function decode(job: Job, plan: ImagePlan): Promise<Input> {
   switch (plan.decode) {
     case 'sharp':
-      return job.src
+      return job.from === 'svg' ? vectorInput(job) : job.src
     case 'sips': {
       const out = join(job.tmp, 'decoded.png')
       await run(tools().sips!, ['-s', 'format', 'png', job.src, '--out', out], { signal: job.signal })
@@ -66,6 +74,19 @@ async function decode(job: Job, plan: ImagePlan): Promise<Input> {
       return out
     }
   }
+}
+
+/**
+ * Draws an SVG at Settings → Vector size, straight at that resolution so edges stay sharp.
+ * Icons need up to 256 px, so an SVG headed for ICO is always drawn at least that large.
+ */
+async function vectorInput(job: Job): Promise<VectorFile> {
+  const { width = 0, height = 0 } = await sharp(job.src).metadata()
+  if (!width || !height) return { vector: job.src, density: 72 }
+  let { scale } = vectorOutputSize(width, height, job.settings.vectorSize)
+  if (job.to === 'ico') scale = Math.max(scale, 256 / Math.max(width, height))
+  // sharp accepts densities from 1 to 100000 dpi.
+  return { vector: job.src, density: Math.min(100000, Math.max(1, 72 * scale)) }
 }
 
 function pipeline(input: Input, job: Job, animated = false): Sharp {
@@ -110,7 +131,7 @@ export async function convertImage(job: Job, plan: ImagePlan): Promise<Output> {
       break
     case 'sips': {
       let file = input
-      if (typeof file !== 'string' || plan.decode !== 'sharp') {
+      if (typeof file !== 'string' || plan.decode !== 'sharp' || job.from === 'svg') {
         file = join(job.tmp, 'oriented.png')
         await open(input).rotate().png().toFile(file)
       }

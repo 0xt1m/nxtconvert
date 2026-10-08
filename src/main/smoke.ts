@@ -12,6 +12,7 @@ import { saveSettings } from './settings'
 import { probe } from './probe'
 import { convert } from './convert'
 import { convertImage } from './convert/image'
+import { MAX_RASTER_EDGE, vectorOutputSize } from '@shared/vector'
 import { getSettings } from './settings'
 import { mkdtemp } from 'node:fs/promises'
 
@@ -106,6 +107,29 @@ async function main(): Promise<void> {
       if (!reachable) console.log(`note: no sample reaches ${kind} → ${f.ext}`)
     }
   }
+
+  // SVG → pixels at Settings → Vector size, matching the size the row promises.
+  const svg = join(root, 'in', 'sample.svg') // 64 × 64
+  for (const [setting, to, expect] of [['1x', 'png', 64], ['4x', 'png', 256], ['1024', 'jpg', 1024], ['3x', 'webp', 192], ['2x', 'pdf', 0]] as const) {
+    await saveSettings({ vectorSize: setting })
+    const res = await convert({ id: `svg-${setting}`, path: svg, to }, () => {})
+    let got = 'failed'
+    if (res.ok && to !== 'pdf') { const m = await sharp(res.output).metadata(); got = `${m.width}×${m.height}` }
+    else if (res.ok) got = 'ok'
+    const want = to === 'pdf' ? 'ok' : `${expect}×${expect}`
+    if (got === want && (to === 'pdf' || vectorOutputSize(64, 64, setting).width === expect)) { passed++; console.log(`ok svg ${setting} → ${to} ${got}`) }
+    else { failed++; console.log(`XX svg ${setting} → ${to}: got ${got}, want ${want}`) }
+  }
+  // Icons need 256 px even when the setting is "Original size".
+  await saveSettings({ vectorSize: '1x' })
+  const ico = await convert({ id: 'svg-ico', path: svg, to: 'ico' }, () => {})
+  const icoBuf = ico.ok ? (await import('node:fs')).readFileSync(ico.output) : Buffer.alloc(0)
+  const icoHas256 = icoBuf.length > 6 && Array.from({ length: icoBuf.readUInt16LE(4) }, (_, i) => icoBuf[6 + i * 16]).includes(0)
+  if (icoHas256) { passed++; console.log('ok svg → ico includes 256 px') } else { failed++; console.log('XX svg → ico is missing the 256 px size') }
+  // Huge requests are capped, not attempted.
+  const capped = vectorOutputSize(8000, 4000, '4x')
+  if (capped.width === MAX_RASTER_EDGE && capped.height === MAX_RASTER_EDGE / 2) { passed++; console.log(`ok vector size cap ${capped.width}×${capped.height}`) }
+  else { failed++; console.log('XX vector size cap', capped) }
 
   // The WebAssembly HEIC decoder (Windows and Linux) runs here too, even on a Mac that has sips.
   // NXT_HEIC_SAMPLE=<photo.heic> times it on a real-size photo.
