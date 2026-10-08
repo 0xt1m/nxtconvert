@@ -2,9 +2,9 @@
 
 All notable changes to nxtconvert. Each version's notes are also shown in the app's update panel.
 
-## 0.1.3
+## 0.1.4
 
-- macOS: nxtconvert is now signed and notarized by Apple. It opens without warnings, and fixes the "nxtconvert is damaged" message when opening the 0.1.2 download.
+- macOS: nxtconvert is now signed and notarized by Apple. It opens without warnings, and fixes the "nxtconvert is damaged" message when opening earlier downloads.
 - macOS: updates now install from inside the app.
 
 ## 0.1.2

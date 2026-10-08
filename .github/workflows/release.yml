@@ -44,7 +44,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        # macos-15, not macos-latest: on macOS 26 runners electron-builder can't unlock the temporary
+        # keychain it imports the signing certificate into, so signed builds fail.
+        os: [macos-15, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
