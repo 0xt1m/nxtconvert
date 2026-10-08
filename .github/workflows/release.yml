@@ -67,11 +67,17 @@ jobs:
           for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
             [ -n "${!v}" ] || unset "$v"
           done
+          extra=()
           if [ "$RUNNER_OS" = macOS ] && [ -z "${CSC_LINK:-}" ]; then
+            # Without a Developer ID, sign ad hoc. A missing or broken signature makes macOS report the
+            # downloaded app as "damaged" with no way to open it; ad hoc gets the usual "Open Anyway".
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-            echo "::warning::No MAC_CERTIFICATE secret: the macOS build is unsigned and can't update itself."
+            # Apple only notarizes Developer ID signatures; trying with an ad hoc one fails the build.
+            unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            extra=(-c.mac.identity=- -c.mac.hardenedRuntime=false)
+            echo "::warning::No MAC_CERTIFICATE secret: the macOS build is signed ad hoc, not notarized, and can't update itself."
           fi
-          npx electron-builder --publish always
+          npx electron-builder --publish always "${extra[@]}"
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           # macOS signing (Developer ID certificate) and notarization; see docs/RELEASING.md.
