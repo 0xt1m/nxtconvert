@@ -31,6 +31,7 @@ jobs:
           Start-Process $installer.FullName -ArgumentList '/S' -Wait
           $exe = "$env:LOCALAPPDATA\Programs\nxtconvert\nxtconvert.exe"
           "installed: $((Get-Item $exe).VersionInfo.ProductVersion)"
+          Get-Content "$env:LOCALAPPDATA\Programs\nxtconvert\resources\app-update.yml"
       - name: Update from inside the app
         shell: pwsh
         run: |
@@ -49,6 +50,8 @@ jobs:
           if (Test-Path $exe) { "installed now: $((Get-Item $exe).VersionInfo.ProductVersion)" } else { "app missing after update" }
           "--- app output (update lines)"
           Get-Content app-out.log, app-err.log -ErrorAction SilentlyContinue | Select-String -Pattern 'update|error|EPERM|EBUSY|ENOENT|sha512|signature' | Select-Object -First 40
+          "--- update settings in the installed app"
+          Get-Content "$env:LOCALAPPDATA\Programs\nxtconvert\resources\app-update.yml" -ErrorAction SilentlyContinue
           "--- updater cache"
           Get-ChildItem -Recurse "$env:LOCALAPPDATA\nxtconvert-updater" -ErrorAction SilentlyContinue | Select-Object FullName, Length
           "--- updater log"

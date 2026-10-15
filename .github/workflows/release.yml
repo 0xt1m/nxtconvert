@@ -69,6 +69,11 @@ jobs:
           for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
             [ -n "${!v}" ] || unset "$v"
           done
+          # The Apple certificate is for macOS only. Given to the Windows build it signs the installer
+          # with a certificate Windows doesn't trust, and installed apps then reject every update.
+          if [ "$RUNNER_OS" != macOS ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          fi
           extra=()
           if [ "$RUNNER_OS" = macOS ] && [ -z "${CSC_LINK:-}" ]; then
             # Without a Developer ID, sign ad hoc. A missing or broken signature makes macOS report the
