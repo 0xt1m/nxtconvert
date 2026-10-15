@@ -5,6 +5,7 @@ import { PDFDocument } from 'pdf-lib'
 import { extOf, kindOf } from '@shared/formats'
 import type { FileInfo } from '@shared/types'
 import { FFMPEG, run, tools, ToolError } from './tools'
+import { dxfToSvg } from './convert/cad'
 
 export function formatSize(bytes: number): string {
   if (bytes < 1000) return `${bytes} B`
@@ -56,7 +57,13 @@ export async function probe(path: string): Promise<FileInfo> {
   let vector: FileInfo['vector']
   try {
     const kind = kindOf(ext)
-    if (kind === 'image') {
+    if (ext === 'dxf' && size < 100e6) {
+      const drawing = dxfToSvg(await readFile(path, 'utf8'))
+      // Real-world size when the drawing declares units, otherwise its size in drawing units.
+      const w = /width="([\d.]+)(mm)?"/.exec(drawing.svg), h = /height="([\d.]+)(mm)?"/.exec(drawing.svg)
+      if (w && h) parts.push(`${Math.round(Number(w[1]))} × ${Math.round(Number(h[1]))}${w[2] ? ' mm' : ''}`)
+      vector = { width: drawing.width, height: drawing.height }
+    } else if (kind === 'image') {
       const dims = await imageSize(path, ext)
       if (dims) parts.push(`${dims[0]} × ${dims[1]}`)
       if (dims && ext === 'svg') vector = { width: dims[0], height: dims[1] }

@@ -138,7 +138,10 @@ export function App({ env }: { env: Environment }) {
   }, [rows, runRow])
 
   const busy = rows.some((r) => r.status === 'queued' || r.status === 'converting')
-  const convertible = rows.filter((r) => r.status === 'ready' && r.to && r.targets.find((t) => t.ext === r.to)?.available)
+  const hasTarget = (r: Row): boolean => !!r.to && !!r.targets.find((t) => t.ext === r.to)?.available
+  const convertible = rows.filter((r) => r.status === 'ready' && hasTarget(r))
+  // With nothing new to do, Convert runs the finished files again (new settings, another copy).
+  const again = convertible.length || busy ? [] : rows.filter((r) => r.status === 'done' && hasTarget(r))
 
   // When a batch ends, optionally open the output folder.
   const wasBusy = useRef(false)
@@ -151,11 +154,11 @@ export function App({ env }: { env: Environment }) {
   }, [busy, rows, settings.openFolderWhenDone, settings.outputDir])
 
   const startAll = useCallback(() => {
-    const ids = new Set(convertible.map((r) => r.id))
+    const ids = new Set((convertible.length ? convertible : again).map((r) => r.id))
     if (!ids.size) return
     setBatch((b) => ({ total: (b?.total ?? 0) + ids.size, finished: b?.finished ?? 0 }))
-    setRows((rs) => rs.map((r) => (ids.has(r.id) ? { ...r, status: 'queued', progress: 0 } : r)))
-  }, [convertible])
+    setRows((rs) => rs.map((r) => (ids.has(r.id) ? { ...r, status: 'queued', progress: 0, output: undefined } : r)))
+  }, [convertible, again])
 
   const retry = useCallback((r: Row) => {
     setBatch((b) => ({ total: (b?.total ?? 0) + 1, finished: b?.finished ?? 0 }))
@@ -179,8 +182,11 @@ export function App({ env }: { env: Environment }) {
 
   const changeFolder = useCallback(async () => {
     const dir = await window.nxt.pickFolder()
-    if (dir) void saveSettings({ outputDir: dir })
-  }, [saveSettings])
+    if (!dir || dir === settings.outputDir) return
+    void saveSettings({ outputDir: dir })
+    // Finished files haven't been converted into the new folder yet.
+    setRows((rs) => rs.map((r) => (r.status === 'done' ? { ...r, status: 'ready', progress: 0, output: undefined } : r)))
+  }, [saveSettings, settings.outputDir])
 
   // ---------- Updates ----------
 
@@ -234,7 +240,8 @@ export function App({ env }: { env: Environment }) {
 
   /** SVG rows also show the pixel size they'll be converted at (Settings → Vector size). */
   const metaFor = (r: Row): string => {
-    if (!r.vector || r.status === 'done') return r.meta
+    // The pixel size only matters when the drawing becomes pixels; SVG, DXF and PDF stay vectors.
+    if (!r.vector || r.status === 'done' || ['svg', 'dxf', 'pdf'].includes(r.to ?? '')) return r.meta
     const out = vectorOutputSize(r.vector.width, r.vector.height, settings.vectorSize)
     const size = r.to === 'ico' ? 'up to 256 × 256' : `${out.width} × ${out.height}`
     return `${r.meta} → ${size}`
@@ -285,7 +292,8 @@ export function App({ env }: { env: Environment }) {
 
   const tabs = KINDS.map((k) => ({ ...k, count: rows.filter((r) => inTab(r, k.id)).length }))
   const shown = rows.filter((r) => inTab(r, tab))
-  const n = convertible.length
+  const n = convertible.length || again.length
+  const convertLabel = convertible.length ? `Convert ${plural(n, 'file')}` : again.length ? `Convert ${plural(n, 'file')} again` : 'Convert'
 
   return (
     <Window platform={platform} actions={titleActions} className={dragging ? 'app-dragging' : undefined}
@@ -304,7 +312,7 @@ export function App({ env }: { env: Environment }) {
         {busy && batch && <span className="app-batch" aria-live="polite">{Math.min(batch.finished + 1, batch.total)} of {batch.total}</span>}
         {busy && <Button variant="secondary" onClick={stop}>Stop</Button>}
         <Switch checked={settings.keepOriginals} onChange={(e) => void saveSettings({ keepOriginals: e.target.checked })} label="Keep originals" />
-        <Button variant="primary" icon="arrow" disabled={!n} onClick={startAll}>{n ? `Convert ${plural(n, 'file')}` : 'Convert'}</Button>
+        <Button variant="primary" icon="arrow" disabled={!n} onClick={startAll}>{convertLabel}</Button>
       </>}>
       {shown.length
         ? shown.map((r) => (

@@ -11,6 +11,7 @@ export const FORMAT_INFO = {
   tiff: { name: 'TIFF', long: 'TIFF image', about: 'TIFF is a lossless format used in print, scanning and photo archiving.' },
   bmp: { name: 'BMP', long: 'bitmap image', about: 'BMP is an uncompressed Windows bitmap. Files are large, but almost every program can read them.' },
   ico: { name: 'ICO', long: 'Windows icon', about: 'ICO holds a Windows or website icon at several sizes in one file. nxtconvert writes 16 to 256 pixel versions.' },
+  dxf: { name: 'DXF', long: 'DXF drawing', about: 'DXF is the CAD exchange format from AutoCAD, read by LibreCAD, Fusion, SolidWorks, Inkscape and laser cutter software. It stores lines, arcs and circles at real-world sizes.' },
   svg: { name: 'SVG', long: 'SVG vector graphic', about: 'SVG is a vector format that scales to any size. Converting it gives you a regular image at a fixed size.' },
   pdf: { name: 'PDF', long: 'PDF document', about: 'PDF keeps layout identical on every device, which makes it the standard for sharing, printing and signing documents.' },
   mp4: { name: 'MP4', long: 'MP4 video', about: 'MP4 with H.264 video plays on virtually every phone, browser, TV and editor.' },
@@ -57,6 +58,10 @@ export const PAIRS = [
   { from: 'png', to: 'pdf' },
   { from: 'png', to: 'ico', blurb: 'Make a Windows app icon or website favicon from any PNG. The ICO file holds 16, 32, 48 and up to 256 pixel versions.' },
   { from: 'svg', to: 'png' },
+  { from: 'dxf', to: 'pdf', blurb: 'Share a CAD drawing with someone who doesn’t have CAD software. The PDF stays a vector drawing at its real size, so it prints to scale and stays sharp at any zoom.' },
+  { from: 'dxf', to: 'svg', blurb: 'Bring a CAD drawing into Illustrator, Figma, Inkscape or a web page. Lines, circles, arcs, layer colours and text come across as editable vectors at real size.' },
+  { from: 'dxf', to: 'png' },
+  { from: 'svg', to: 'dxf', blurb: 'Send a vector design to a laser cutter, CNC router or CAD program. Circles stay true circles, curves are traced to within 0.05 mm, and colours map to standard CAD colours for cut and engrave layers.' },
   { from: 'tiff', to: 'jpg' },
   { from: 'bmp', to: 'png' },
   { from: 'gif', to: 'webp' },
@@ -107,7 +112,7 @@ export const FAQ = [
   },
   {
     q: 'Which formats does it support?',
-    a: 'Images: JPG, PNG, WEBP, AVIF, HEIC, GIF, TIFF, BMP, ICO and SVG. Video: MP4, MOV, WEBM, MKV and AVI, plus GIF and MP3 export. Audio: MP3, WAV, FLAC, AAC, M4A, OGG and OPUS. Documents: PDF, DOCX, HTML, TXT and Markdown, with ODT, RTF and EPUB when LibreOffice or Pandoc is installed.'
+    a: 'Images: JPG, PNG, WEBP, AVIF, HEIC, GIF, TIFF, BMP, ICO, SVG and DXF drawings. Video: MP4, MOV, WEBM, MKV and AVI, plus GIF and MP3 export. Audio: MP3, WAV, FLAC, AAC, M4A, OGG and OPUS. Documents: PDF, DOCX, HTML, TXT and Markdown, with ODT, RTF and EPUB when LibreOffice or Pandoc is installed.'
   },
   {
     q: 'Which systems does it run on?',

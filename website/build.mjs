@@ -204,7 +204,7 @@ function homePage(release) {
 
 <section id="formats"><div class="wrap">
   <h2>Every format you actually use</h2>
-  <p class="sub">30 formats across images, video, audio and documents, including iPhone HEIC photos, AVIF and WebP for the web, and FLAC for music.</p>
+  <p class="sub">31 formats across images, drawings, video, audio and documents, including iPhone HEIC photos, AVIF and WebP for the web, DXF for CAD, and FLAC for music.</p>
   <div class="grid">${kinds}</div>
   <h3 class="kind-head" style="margin-top:40px">Popular conversions</h3>
   <ul class="pairs">${popular.map((p) => `<li><a href="convert/${slug(p)}/">${badge(p.from)}<span class="arrow">→</span>${badge(p.to)}</a></li>`).join('')}</ul>

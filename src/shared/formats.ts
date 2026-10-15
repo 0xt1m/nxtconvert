@@ -30,7 +30,10 @@ export const FORMATS: Record<Kind, Format[]> = {
   image: [
     { ext: 'jpg', note: 'Photos' }, { ext: 'png', note: 'Lossless' }, { ext: 'webp', note: 'Web' },
     { ext: 'avif', note: 'Smallest' }, { ext: 'heic', note: 'Apple' }, { ext: 'gif', note: 'Animated' },
-    { ext: 'tiff', note: 'Print' }, { ext: 'bmp', note: 'Raw' }, { ext: 'ico', note: 'Icons' }, { ext: 'pdf', note: 'Document' }
+    { ext: 'tiff', note: 'Print' }, { ext: 'bmp', note: 'Raw' }, { ext: 'ico', note: 'Icons' },
+    // Vector targets, offered only for vector sources (see targetsFor).
+    { ext: 'svg', note: 'Vector' }, { ext: 'dxf', note: 'CAD' },
+    { ext: 'pdf', note: 'Document' }
   ],
   video: [
     { ext: 'mp4', note: 'H.264' }, { ext: 'mov', note: 'Apple' }, { ext: 'webm', note: 'Web' },
@@ -50,7 +53,7 @@ export const FORMATS: Record<Kind, Format[]> = {
 
 const KIND_OF: Record<string, Kind> = {
   jpg: 'image', png: 'image', webp: 'image', avif: 'image', heic: 'image', gif: 'image', tiff: 'image',
-  bmp: 'image', ico: 'image', svg: 'image',
+  bmp: 'image', ico: 'image', svg: 'image', dxf: 'image',
   mp4: 'video', mov: 'video', webm: 'video', mkv: 'video', avi: 'video', m4v: 'video',
   mp3: 'audio', wav: 'audio', flac: 'audio', aac: 'audio', m4a: 'audio', ogg: 'audio', opus: 'audio',
   pdf: 'doc', docx: 'doc', doc: 'doc', odt: 'doc', rtf: 'doc', txt: 'doc', html: 'doc', md: 'doc', epub: 'doc'
@@ -78,20 +81,33 @@ export function kindOf(ext: string): Kind | 'any' {
 const SHARP_IN = new Set(['jpg', 'png', 'webp', 'avif', 'gif', 'tiff', 'svg'])
 const SHARP_OUT = new Set(['jpg', 'png', 'webp', 'avif', 'gif', 'tiff'])
 
-export type ImageDecoder = 'sharp' | 'sips' | 'heic-wasm' | 'ffmpeg'
-export type ImageEncoder = 'sharp' | 'bmp' | 'ico' | 'pdf' | 'sips'
+/** Drawings made of lines and curves rather than pixels. */
+export const VECTOR = new Set(['svg', 'dxf'])
+
+export type ImageDecoder = 'sharp' | 'sips' | 'heic-wasm' | 'ffmpeg' | 'dxf'
+/** `svg` and `dxf` convert vector to vector; `pdf-vector` prints a drawing to PDF without rasterising it. */
+export type ImageEncoder = 'sharp' | 'bmp' | 'ico' | 'pdf' | 'pdf-vector' | 'sips' | 'svg' | 'dxf'
 
 export interface ImagePlan { engine: 'image'; decode: ImageDecoder; encode: ImageEncoder }
 
 function planImage(from: string, to: string, caps: Caps): ImagePlan | string {
+  // Vector to vector keeps the lines: DXF ↔ SVG only.
+  if (VECTOR.has(to)) {
+    if (from === 'dxf' && to === 'svg') return { engine: 'image', decode: 'dxf', encode: 'svg' }
+    if (from === 'svg' && to === 'dxf') return { engine: 'image', decode: 'sharp', encode: 'dxf' }
+    return 'Unsupported format'
+  }
+
   let decode: ImageDecoder
-  if (SHARP_IN.has(from)) decode = 'sharp'
+  if (from === 'dxf') decode = 'dxf'
+  else if (SHARP_IN.has(from)) decode = 'sharp'
   else if (from === 'heic') decode = caps.sips ? 'sips' : 'heic-wasm'
   else if (from === 'bmp' || from === 'ico') decode = 'ffmpeg'
   else return 'Unsupported format'
 
   let encode: ImageEncoder
   if (SHARP_OUT.has(to)) encode = 'sharp'
+  else if (to === 'pdf' && VECTOR.has(from)) encode = 'pdf-vector'
   else if (to === 'bmp' || to === 'ico' || to === 'pdf') encode = to
   else if (to === 'heic') {
     if (!caps.sips) return 'No HEIC encoder'
@@ -194,7 +210,8 @@ export function targetsFor(fromExt: string, caps: Caps): Target[] {
   const from = normalizeExt(fromExt), kind = kindOf(from)
   if (kind === 'any') return []
   return FORMATS[kind]
-    .filter((f) => f.ext !== from)
+    // A photo can't become a vector drawing, so SVG and DXF aren't offered for pixel images at all.
+    .filter((f) => f.ext !== from && (!VECTOR.has(f.ext) || VECTOR.has(from)))
     .map((f) => {
       const plan = planFor(from, f.ext, caps)
       return typeof plan === 'string' ? { ...f, available: false, reason: plan } : { ...f, available: true }

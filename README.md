@@ -45,6 +45,7 @@ The app checks for new versions when it starts and asks before installing anythi
 | Category | Converts from | Converts to |
 | --- | --- | --- |
 | Images | JPG, PNG, WEBP, AVIF, HEIC, GIF, TIFF, BMP, ICO, SVG | JPG, PNG, WEBP, AVIF, GIF, TIFF, BMP, ICO, PDF, HEIC (macOS) |
+| Drawings | SVG, DXF | SVG ↔ DXF, vector PDF, and every image format above |
 | Video | MP4, MOV, WEBM, MKV, AVI, M4V | MP4, MOV, WEBM, MKV, AVI, GIF, MP3 |
 | Audio | MP3, WAV, FLAC, AAC, M4A, OGG, OPUS | MP3, WAV, FLAC, AAC, M4A, OGG, OPUS |
 | Documents | DOCX, HTML, Markdown, TXT | PDF, HTML, TXT |

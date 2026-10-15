@@ -8,6 +8,8 @@ import { FFMPEG, run, tools, ToolError } from '../tools'
 import { vectorOutputSize } from '@shared/vector'
 import { throwIfAborted, type Job, type Output } from './util'
 import heicWorkerPath from './heic.worker?modulePath'
+import { dxfToSvg, svgToDxf } from './cad'
+import { svgToPdf } from '../render'
 
 /** Decoded pixels handed straight to sharp, with no intermediate file. */
 interface RawPixels {
@@ -60,7 +62,9 @@ async function decodeHeic(file: string, signal: AbortSignal): Promise<RawPixels>
 async function decode(job: Job, plan: ImagePlan): Promise<Input> {
   switch (plan.decode) {
     case 'sharp':
-      return job.from === 'svg' ? vectorInput(job) : job.src
+      return job.from === 'svg' ? vectorInput(job, job.src) : job.src
+    case 'dxf':
+      return vectorInput(job, await dxfAsSvgFile(job))
     case 'sips': {
       const out = join(job.tmp, 'decoded.png')
       await run(tools().sips!, ['-s', 'format', 'png', job.src, '--out', out], { signal: job.signal })
@@ -80,13 +84,20 @@ async function decode(job: Job, plan: ImagePlan): Promise<Input> {
  * Draws an SVG at Settings → Vector size, straight at that resolution so edges stay sharp.
  * Icons need up to 256 px, so an SVG headed for ICO is always drawn at least that large.
  */
-async function vectorInput(job: Job): Promise<VectorFile> {
-  const { width = 0, height = 0 } = await sharp(job.src).metadata()
-  if (!width || !height) return { vector: job.src, density: 72 }
+async function vectorInput(job: Job, file: string): Promise<VectorFile> {
+  const { width = 0, height = 0 } = await sharp(file).metadata()
+  if (!width || !height) return { vector: file, density: 72 }
   let { scale } = vectorOutputSize(width, height, job.settings.vectorSize)
   if (job.to === 'ico') scale = Math.max(scale, 256 / Math.max(width, height))
   // sharp accepts densities from 1 to 100000 dpi.
-  return { vector: job.src, density: Math.min(100000, Math.max(1, 72 * scale)) }
+  return { vector: file, density: Math.min(100000, Math.max(1, 72 * scale)) }
+}
+
+/** A DXF drawing as an SVG file in the job's temp folder, sized in pixels (see dxfToSvg). */
+async function dxfAsSvgFile(job: Job): Promise<string> {
+  const file = join(job.tmp, 'drawing.svg')
+  await writeFile(file, dxfToSvg(await readFile(job.src, 'utf8'), 'px').svg)
+  return file
 }
 
 function pipeline(input: Input, job: Job, animated = false): Sharp {
@@ -98,6 +109,24 @@ function pipeline(input: Input, job: Job, animated = false): Sharp {
 export async function convertImage(job: Job, plan: ImagePlan): Promise<Output> {
   const q = job.settings.imageQuality
   const out = join(job.tmp, `out.${job.to}`)
+
+  // Vector to vector, and vector to PDF, never pass through pixels.
+  if (plan.encode === 'svg' || plan.encode === 'dxf' || plan.encode === 'pdf-vector') {
+    job.progress(20)
+    if (plan.encode === 'svg') await writeFile(out, dxfToSvg(await readFile(job.src, 'utf8')).svg)
+    else if (plan.encode === 'dxf') await writeFile(out, svgToDxf(await readFile(job.src, 'utf8')).dxf)
+    else {
+      // A DXF keeps its real-world size (mm or inches) so the PDF prints at that size.
+      let svg = job.src
+      if (job.from === 'dxf') {
+        svg = join(job.tmp, 'drawing.svg')
+        await writeFile(svg, dxfToSvg(await readFile(job.src, 'utf8')).svg)
+      }
+      await writeFile(out, await svgToPdf(svg, job.tmp, job.signal))
+    }
+    job.progress(100)
+    return out
+  }
 
   const input = await decode(job, plan)
   job.progress(35)

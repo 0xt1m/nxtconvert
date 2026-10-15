@@ -47,6 +47,25 @@ async function fixtures(dir: string): Promise<string[]> {
   await photo.clone().gif().toFile(f('sample.gif'))
   await photo.clone().tiff().toFile(f('sample.tiff'))
   writeFileSync(f('sample.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="12" fill="#d4ff3a"/></svg>')
+  // A CAD drawing in millimetres: two layers, a reused block (once scaled 2×), text and a note.
+  writeFileSync(f('sample.dxf'), [
+    '0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1015', '9', '$INSUNITS', '70', '4', '0', 'ENDSEC',
+    '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', '2',
+    '0', 'LAYER', '2', '0', '70', '0', '62', '7', '6', 'CONTINUOUS',
+    '0', 'LAYER', '2', 'CUT', '70', '0', '62', '1', '6', 'CONTINUOUS', '0', 'ENDTAB', '0', 'ENDSEC',
+    '0', 'SECTION', '2', 'BLOCKS', '0', 'BLOCK', '8', '0', '2', 'BOLT', '70', '0', '10', '0', '20', '0', '30', '0',
+    '0', 'CIRCLE', '8', '0', '10', '0', '20', '0', '30', '0', '40', '3', '0', 'ENDBLK', '8', '0', '0', 'ENDSEC',
+    '0', 'SECTION', '2', 'ENTITIES',
+    '0', 'LINE', '8', '0', '10', '0', '20', '-10', '30', '0', '11', '200', '21', '-10', '31', '0',
+    '0', 'LWPOLYLINE', '8', 'CUT', '90', '4', '70', '1', '10', '0', '20', '0', '10', '200', '20', '0', '10', '200', '20', '120', '10', '0', '20', '120',
+    '0', 'CIRCLE', '8', '0', '10', '100', '20', '60', '30', '0', '40', '30',
+    '0', 'ARC', '8', '0', '10', '100', '20', '60', '30', '0', '40', '45', '50', '0', '51', '180',
+    '0', 'INSERT', '8', '0', '2', 'BOLT', '10', '20', '20', '20', '30', '0',
+    '0', 'INSERT', '8', '0', '2', 'BOLT', '10', '180', '20', '20', '30', '0', '41', '2', '42', '2',
+    '0', 'TEXT', '8', '0', '10', '10', '20', '100', '30', '0', '40', '8', '1', 'PLATE A',
+    '0', 'MTEXT', '8', '0', '10', '120', '20', '110', '30', '0', '40', '5', '71', '1', '1', 'Line one\\PLine two',
+    '0', 'ENDSEC', '0', 'EOF', ''
+  ].join('\n'))
   ff(['-i', join(dir, 'sample.png'), f('sample.bmp')])
   await photo.clone().resize(64, 64).png().toFile(join(dir, 'icon.png'))
   ff(['-i', join(dir, 'icon.png'), f('sample.ico')])
@@ -106,6 +125,68 @@ async function main(): Promise<void> {
       const reachable = sources.some((s) => kindOf(s.split('.').pop()!) === kind && typeof planFor(s.split('.').pop()!, f.ext, caps) !== 'string')
       if (!reachable) console.log(`note: no sample reaches ${kind} → ${f.ext}`)
     }
+  }
+
+  // DXF and SVG ↔ DXF: sizes, text, units, and that a written DXF reads back with the same shapes.
+  {
+    const { Helper } = await import('dxf')
+    const { svgToDxf, dxfToSvg } = await import('./convert/cad')
+    const fs = await import('node:fs')
+    const check = (ok: boolean, label: string, detail = ''): void => {
+      if (ok) { passed++; console.log(`ok ${label}`) } else { failed++; console.log(`XX ${label} ${detail}`) }
+    }
+    const dxfFile = join(root, 'in', 'sample.dxf')
+    const info = await probe(dxfFile)
+    check(/2\d\d × 1\d\d mm/.test(info.meta) && !!info.vector, `dxf probe: ${info.meta}`, JSON.stringify(info.vector))
+
+    const asSvg = await convert({ id: 'dxf-svg', path: dxfFile, to: 'svg' }, () => {})
+    const svgText = asSvg.ok ? fs.readFileSync(asSvg.output, 'utf8') : ''
+    check(/width="[\d.]+mm"/.test(svgText) && svgText.includes('PLATE A') && svgText.includes('Line two'), 'dxf → svg keeps mm size and text')
+    check((svgText.match(/<circle/g) ?? []).length >= 3, 'dxf → svg draws circles from blocks', `${(svgText.match(/<circle/g) ?? []).length} circles`)
+
+    await saveSettings({ vectorSize: '1024' })
+    const asPng = await convert({ id: 'dxf-png', path: dxfFile, to: 'png' }, () => {})
+    const png = asPng.ok ? await sharp(asPng.output).metadata() : null
+    const want = vectorOutputSize(info.vector!.width, info.vector!.height, '1024')
+    check(png?.width === want.width && png?.height === want.height, `dxf → png at vector size ${png?.width}×${png?.height}`, `want ${want.width}×${want.height}`)
+    // Lines must actually be drawn: a blank image would still have the right size.
+    const stats = asPng.ok ? await sharp(asPng.output).flatten({ background: '#fff' }).greyscale().stats() : null
+    check(!!stats && stats.channels[0].min < 50, 'dxf → png has visible lines')
+    await saveSettings({ vectorSize: '1x' })
+
+    const asPdf = await convert({ id: 'dxf-pdf', path: dxfFile, to: 'pdf' }, () => {})
+    const pdfBytes = asPdf.ok ? fs.readFileSync(asPdf.output) : Buffer.alloc(0)
+    // A vector PDF draws paths; a rasterised one would embed an image instead.
+    check(asPdf.ok && !pdfBytes.includes('/Subtype /Image') && !pdfBytes.includes('/Subtype/Image'), 'dxf → pdf stays vector')
+    const { PDFDocument } = await import('pdf-lib')
+    const page = asPdf.ok ? (await PDFDocument.load(pdfBytes)).getPage(0).getSize() : { width: 0, height: 0 }
+    const mmW = (page.width / 72) * 25.4
+    check(mmW > 200 && mmW < 260, `dxf → pdf page is drawing size (${Math.round(mmW)} mm wide)`)
+
+    // SVG → DXF with transforms, units, rounded corners, curves and colours.
+    const svgIn = join(root, 'in', 'shapes.svg')
+    fs.writeFileSync(svgIn, `<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="50mm" viewBox="0 0 200 100">
+      <g transform="translate(10 10)" stroke="#ff0000" fill="none">
+        <rect x="0" y="0" width="80" height="40" rx="5"/>
+        <circle cx="120" cy="20" r="15" stroke="blue"/>
+        <g transform="scale(2 1)"><circle cx="60" cy="60" r="5"/></g>
+        <path d="M0 60 C 20 40, 40 80, 60 60 S 100 40, 120 60 Q 140 80 160 60 A 10 10 0 0 1 180 60"/>
+        <polygon points="150,70 170,90 130,90" style="stroke:#00ff00"/>
+        <line x1="0" y1="85" x2="100" y2="85"/>
+        <text x="0" y="0">ignored</text>
+      </g>
+    </svg>`)
+    const { dxf, entities } = svgToDxf(fs.readFileSync(svgIn, 'utf8'))
+    check(entities === 6, `svg → dxf shape count ${entities}`, 'want 6: rect, circle, stretched circle, path, polygon, line (text skipped)')
+    const back = new Helper(dxf).denormalised as { type: string; r?: number; colorNumber?: number }[]
+    const circles = back.filter((e) => e.type === 'CIRCLE')
+    check(circles.length === 1 && Math.abs((circles[0].r ?? 0) - 7.5) < 0.01, `svg → dxf keeps true circles in mm (r=${circles[0]?.r})`, JSON.stringify(circles))
+    const colors = new Set(back.map((e) => e.colorNumber))
+    check(colors.has(1) && colors.has(5) && colors.has(3), `svg → dxf maps colours to CAD colours ${[...colors].join(',')}`)
+    const reread = dxfToSvg(dxf)
+    check(/width="(9\d|10\d)(\.\d+)?mm"/.test(reread.svg), 'svg → dxf → svg keeps the 100 mm width', /width="[^"]*"/.exec(reread.svg)?.[0])
+    const viaApp = await convert({ id: 'svg-dxf', path: svgIn, to: 'dxf' }, () => {})
+    check(viaApp.ok && fs.readFileSync(viaApp.output, 'utf8').includes('AC1009'), 'svg → dxf through the app writes R12')
   }
 
   // SVG → pixels at Settings → Vector size, matching the size the row promises.

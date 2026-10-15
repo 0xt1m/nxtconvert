@@ -44,7 +44,7 @@ export function SettingsPanel({ settings: s, caps, onChange, onClose }: {
             onChange={(e) => onChange({ imageQuality: Number(e.target.value) })} />
         </div>
         <div className="app-field">
-          <span title="Pixel size when converting SVG to PNG, JPG and other image formats">Vector size</span>
+          <span title="Pixel size when converting SVG or DXF drawings to PNG, JPG and other image formats">Vector size</span>
           <Select plain label="Vector image size" value={s.vectorSize}
             options={withValue(VECTOR_SIZES.map((o) => ({ value: o.value as string, label: o.label })), s.vectorSize)}
             onChange={(e) => onChange({ vectorSize: e.target.value })} />
