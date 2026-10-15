@@ -30,8 +30,13 @@ export function UpdatePanel({ update: u, busy, onClose }: { update: UpdateState;
     )
   } else if (u.state === 'error') {
     title = 'Update failed'
-    body = <p>Download {u.version ?? 'the new version'} from GitHub instead.</p>
-    action = <Button icon="reveal" onClick={() => void window.nxt.update.openPage()}>Open download page</Button>
+    body = <p>{u.reason && u.reason !== 'Update failed' ? `${u.reason}. ` : ''}Try again, or download {u.version ?? 'the new version'} from the website.</p>
+    action = (
+      <>
+        <Button variant="ghost" icon="reveal" onClick={() => void window.nxt.update.openPage()}>Download page</Button>
+        <Button icon="retry" onClick={() => void window.nxt.update.download()}>Try again</Button>
+      </>
+    )
   } else {
     return null
   }

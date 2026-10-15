@@ -1,7 +1,7 @@
 import { app, ipcMain, net, shell, type BrowserWindow } from 'electron'
 import electronUpdater, { type UpdateInfo } from 'electron-updater'
 import { execFile } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { UpdateState } from '@shared/types'
 
@@ -52,6 +52,29 @@ function canInstall(): Promise<boolean> {
   return installable
 }
 
+/** Keeps the full error for diagnosis: ~/Library/Logs/nxtconvert (macOS), %APPDATA%\\nxtconvert\\logs (Windows). */
+function logError(err: unknown): void {
+  try {
+    const dir = app.getPath('logs')
+    mkdirSync(dir, { recursive: true })
+    const e = err as Error
+    appendFileSync(join(dir, 'updater.log'), `${new Date().toISOString()} ${e?.stack ?? e?.message ?? String(err)}\n`)
+  } catch {
+    // Logging must never break updating.
+  }
+}
+
+/** Three words or fewer about what went wrong, for the panel. */
+function reasonFor(err: unknown): string {
+  const text = String((err as Error)?.message ?? err)
+  if (/ENOTFOUND|ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN|net::ERR_|socket hang up|aborted|timeout/i.test(text)) return 'Download interrupted'
+  if (/sha512|checksum|mismatch/i.test(text)) return 'Download damaged'
+  if (/code signature|signature|validation|designated requirement/i.test(text)) return 'Signature check failed'
+  if (/ENOSPC|space/i.test(text)) return 'Disk full'
+  if (/EACCES|EPERM|permission|read-only/i.test(text)) return 'Permission denied'
+  return 'Update failed'
+}
+
 async function check(): Promise<void> {
   if (!enabled || checked || !net.isOnline()) return
   checked = true
@@ -75,6 +98,7 @@ export function setupUpdater(): void {
   ipcMain.handle('update:state', () => state)
   ipcMain.handle('update:check', () => check())
   ipcMain.handle('update:download', async () => {
+    // Also used by "Try again" after a failure.
     userInitiated = true
     set({ state: 'downloading', version: state.version, current: app.getVersion(), percent: 0 })
     await autoUpdater.downloadUpdate().catch(() => {}) // reported through the 'error' event
@@ -110,7 +134,8 @@ export function setupUpdater(): void {
     set({ state: 'ready', version: info.version, current: app.getVersion() }))
   autoUpdater.on('error', (err) => {
     console.warn('[update]', err?.message ?? err)
-    // macOS only installs updates into a signed app; offer the download page instead.
-    if (userInitiated) set({ state: 'error', version: state.version, current: app.getVersion() })
+    logError(err)
+    // Quiet unless the person asked to update: offline launches and missing releases aren't news.
+    if (userInitiated) set({ state: 'error', version: state.version, current: app.getVersion(), reason: reasonFor(err) })
   })
 }

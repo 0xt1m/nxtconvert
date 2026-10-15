@@ -65,6 +65,8 @@ export interface UpdateState {
   percent?: number
   /** False on an unsigned Mac build: offer the download page instead of installing. */
   canInstall?: boolean
+  /** Why an update failed, three words or fewer ("Download interrupted"). */
+  reason?: string
 }
 
 export interface NxtApi {

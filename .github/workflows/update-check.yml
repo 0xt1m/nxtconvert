@@ -1,0 +1,55 @@
+# Checks that an installed release updates itself to the latest one on Windows, the way a
+# person would: install the older version, open it, click Update, then Restart now.
+# Run it from the Actions tab (or `gh workflow run update-check`) after publishing a release.
+name: update-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: Version to install first (for example 0.1.4)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Install the older version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v${{ inputs.from }}" --repo 0xt1m/nxtconvert-releases --pattern '*.exe' --dir old
+          $installer = Get-ChildItem old\*.exe | Select-Object -First 1
+          Start-Process $installer.FullName -ArgumentList '/S' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\nxtconvert\nxtconvert.exe"
+          "installed: $((Get-Item $exe).VersionInfo.ProductVersion)"
+      - name: Update from inside the app
+        shell: pwsh
+        run: |
+          $exe = "$env:LOCALAPPDATA\Programs\nxtconvert\nxtconvert.exe"
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          Start-Process $exe -ArgumentList '--remote-debugging-port=9222' -RedirectStandardOutput app-out.log -RedirectStandardError app-err.log
+          node scripts/update-e2e.mjs 9222
+          "driver exit code: $LASTEXITCODE"
+          Start-Sleep -Seconds 45
+          exit 0
+      - name: Report
+        if: always()
+        shell: pwsh
+        run: |
+          $exe = "$env:LOCALAPPDATA\Programs\nxtconvert\nxtconvert.exe"
+          if (Test-Path $exe) { "installed now: $((Get-Item $exe).VersionInfo.ProductVersion)" } else { "app missing after update" }
+          "--- app output (update lines)"
+          Get-Content app-out.log, app-err.log -ErrorAction SilentlyContinue | Select-String -Pattern 'update|error|EPERM|EBUSY|ENOENT|sha512|signature' | Select-Object -First 40
+          "--- updater cache"
+          Get-ChildItem -Recurse "$env:LOCALAPPDATA\nxtconvert-updater" -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          "--- updater log"
+          Get-Content "$env:APPDATA\nxtconvert\logs\updater.log" -ErrorAction SilentlyContinue
