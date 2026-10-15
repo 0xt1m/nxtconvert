@@ -104,8 +104,9 @@ export function setupUpdater(): void {
     await autoUpdater.downloadUpdate().catch(() => {}) // reported through the 'error' event
   })
   ipcMain.handle('update:install', () => {
-    // Close the window first so macOS and Windows don't wait on it.
-    setImmediate(() => autoUpdater.quitAndInstall(false, true))
+    // Silent: the Windows installer otherwise opens its full wizard and waits for clicks.
+    // The second argument reopens the app on the new version. macOS ignores both.
+    setImmediate(() => autoUpdater.quitAndInstall(true, true))
   })
   ipcMain.handle('update:open-page', () => shell.openExternal(RELEASES_URL))
 

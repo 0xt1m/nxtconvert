@@ -49,6 +49,18 @@ jobs:
             if ($i % 6 -eq 5) { "still $now at $(($i + 1) * 5) s; running: $((Get-Process | Where-Object { $_.ProcessName -like '*nxtconvert*' -or $_.ProcessName -like '*installer*' -or $_.ProcessName -like 'Un_*' } | ForEach-Object { $_.ProcessName }) -join ', ')" }
           }
           exit 0
+      - name: Silent install, as 0.1.6 and later run it
+        shell: pwsh
+        run: |
+          # Releases up to 0.1.5 start the update installer with its wizard; newer ones run it silently.
+          Get-Process | Where-Object { $_.ProcessName -like 'nxtconvert-*' } | Stop-Process -Force -ErrorAction SilentlyContinue
+          $exe = "$env:LOCALAPPDATA\Programs\nxtconvert\nxtconvert.exe"
+          $before = (Get-Item $exe).VersionInfo.ProductVersion
+          $installer = Get-ChildItem "$env:LOCALAPPDATA\nxtconvert-updater\pending\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $installer) { "no downloaded update to install"; exit 0 }
+          $t = Get-Date
+          Start-Process $installer.FullName -ArgumentList '--updated', '/S' -Wait
+          "silent install of $($installer.Name): $before -> $((Get-Item $exe).VersionInfo.ProductVersion) in $([int]((Get-Date) - $t).TotalSeconds) s"
       - name: Report
         if: always()
         shell: pwsh
