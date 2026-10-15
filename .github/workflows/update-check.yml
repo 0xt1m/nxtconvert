@@ -40,7 +40,14 @@ jobs:
           Start-Process $exe -ArgumentList '--remote-debugging-port=9222' -RedirectStandardOutput app-out.log -RedirectStandardError app-err.log
           node scripts/update-e2e.mjs 9222
           "driver exit code: $LASTEXITCODE"
-          Start-Sleep -Seconds 45
+          # The installer unpacks ~150 MB and relaunches the app; give it up to 3 minutes.
+          $before = (Get-Item $exe).VersionInfo.ProductVersion
+          for ($i = 0; $i -lt 36; $i++) {
+            Start-Sleep -Seconds 5
+            $now = (Get-Item $exe -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+            if ($now -and $now -ne $before) { "version changed to $now after $(($i + 1) * 5) s"; break }
+            if ($i % 6 -eq 5) { "still $now at $(($i + 1) * 5) s; running: $((Get-Process | Where-Object { $_.ProcessName -like '*nxtconvert*' -or $_.ProcessName -like '*installer*' -or $_.ProcessName -like 'Un_*' } | ForEach-Object { $_.ProcessName }) -join ', ')" }
+          }
           exit 0
       - name: Report
         if: always()
@@ -54,5 +61,7 @@ jobs:
           Get-Content "$env:LOCALAPPDATA\Programs\nxtconvert\resources\app-update.yml" -ErrorAction SilentlyContinue
           "--- updater cache"
           Get-ChildItem -Recurse "$env:LOCALAPPDATA\nxtconvert-updater" -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          "--- NSIS update log, if any"
+          Get-ChildItem "$env:LOCALAPPDATA\nxtconvert-updater" -Recurse -Include *.log -ErrorAction SilentlyContinue | Get-Content -ErrorAction SilentlyContinue | Select-Object -Last 20
           "--- updater log"
           Get-Content "$env:APPDATA\nxtconvert\logs\updater.log" -ErrorAction SilentlyContinue
